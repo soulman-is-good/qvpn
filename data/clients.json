@@ -1,0 +1,12 @@
+[
+  {
+    "client_id": "d5777241a6d74134b6c4fdf1c1d844af",
+    "client_title": "Owner",
+    "client_services": [
+      {
+        "service_id": 1,
+        "service_name": "http connection"
+      }
+    ]
+  }
+]

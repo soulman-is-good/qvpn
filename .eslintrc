@@ -27,9 +27,16 @@
   },
   "rules": {
     "import/prefer-default-export": "off",
+    "no-empty-function": "off",
+    "no-useless-constructor": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "no-await-in-loop": "off",
     "prettier/prettier": ["warn"],
+    "no-underscore-dangle": "off",
+    "lines-between-class-members": "off",
+    "class-methods-use-this": "off",
+    "@typescript-eslint/no-misused-new": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
     "import/extensions": [
       "error",
       "ignorePackages",
