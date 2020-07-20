@@ -6,6 +6,7 @@ import { FrameFactory, ClientFrame } from '../src/frames';
 
 describe('Application test', () => {
   const PORT = 3333;
+  let ports!: number[];
   let server!: QVPNServer;
 
   after(async () => {
@@ -37,9 +38,19 @@ describe('Application test', () => {
     socket.on('data', data => frames.addChunk(data));
     await new Promise(resolve =>
       frames.on(ClientFrame.TYPES.PORTS, (frame: ClientFrame) => {
-        assert.include(frame.payload.toString(), 'http connection:');
+        const svcs = JSON.parse(frame.payload.toString());
+
+        ports = svcs.map(svc => svc.port);
+
+        assert.include(svcs[0].name, 'http connection');
         resolve();
       }),
     );
+  });
+
+  it('should send data to client', async () => {
+    const svcPort = ports[0];
+    assert(svcPort);
+    // const socket = createConnection(svcPort);
   });
 });

@@ -1,3 +1,4 @@
+import { isObject } from 'util';
 import { ClientService } from '../utils/clientUtils';
 import { QService } from './QService';
 
@@ -27,16 +28,21 @@ export class QClient {
 
   prepareServicePackage() {
     return Buffer.from(
-      this.services
-        .map(svcD => {
-          const svc = this._svcs.get(svcD.service_name);
-          const name = svcD.service_name;
+      JSON.stringify(
+        this.services
+          .map(svcD => {
+            const svc = this._svcs.get(svcD.service_name);
+            const name = svcD.service_name;
 
-          if (!svc) return '';
+            if (!svc) return null;
 
-          return `${name}:${svc.port}`;
-        })
-        .join('\ubeef'),
+            return {
+              name,
+              port: svc.port,
+            };
+          })
+          .filter(isObject),
+      ),
     );
   }
 }

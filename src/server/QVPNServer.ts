@@ -1,11 +1,20 @@
 import { Server, Socket, createServer } from 'net';
 import log4js from 'log4js';
-import { FrameFactory, MaintainceFrame, ClientFrame } from '../frames';
+import {
+  FrameFactory,
+  MaintainceFrame,
+  ClientFrame,
+  ClientFrameType,
+} from '../frames';
 import { findClientById } from '../utils/clientUtils';
 import { MAGIC_BYTE } from '../consts/generic';
 import { QClient } from './QClient';
 
 const log = log4js.getLogger('QVPNServer');
+
+export interface QVPNServerOptions {
+  timeout: number;
+}
 
 export class QVPNServer {
   private _server: Server;
@@ -13,11 +22,20 @@ export class QVPNServer {
   private _port: number;
   private _error?: Error;
   private _clients: Map<Socket, QClient>;
+  private _options: QVPNServerOptions;
 
-  constructor(port = 31313, host = '0.0.0.0') {
+  constructor(
+    port = 31313,
+    host = '0.0.0.0',
+    options?: Partial<QVPNServerOptions>,
+  ) {
     this._host = host;
     this._port = port;
     this._clients = new Map();
+    this._options = {
+      timeout: 10000,
+      ...options,
+    };
   }
 
   public start(): Promise<void> {
@@ -45,20 +63,6 @@ export class QVPNServer {
     return this._error;
   }
 
-  private prepareMessage(pack: Buffer) {
-    const clientFrame = new ClientFrame(
-      ClientFrame.TYPES.PORTS,
-      pack,
-    ).toBuffer();
-    const magicBuf = Buffer.from([MAGIC_BYTE]);
-    const frameType = Buffer.from([0x01]); // For future
-    const length = Buffer.alloc(4);
-
-    length.writeUInt32LE(clientFrame.length, 0);
-
-    return Buffer.concat([magicBuf, frameType, length, clientFrame]);
-  }
-
   get host(): string {
     return this._host;
   }
@@ -73,7 +77,7 @@ export class QVPNServer {
     );
 
     log.info(`Client connected ${socket.remoteAddress}`);
-    socket.setTimeout(1000);
+    socket.setTimeout(this._options.timeout);
     socket.on('close', (hadError: boolean) => {
       if (hadError) {
         frames.dropLast();
@@ -97,6 +101,12 @@ export class QVPNServer {
     // 5. Client processes the request and returns back to server
     // 6. Server proxies reply from client to requester
 
+    frames.on(MaintainceFrame.TYPES.PING, () => {
+      const message = this._prepareMessage(ClientFrame.TYPES.PONG);
+
+      socket.write(message);
+    });
+
     frames.on(MaintainceFrame.TYPES.AUTH, async (frame: MaintainceFrame) => {
       const token = frame.payload.toString();
       const clientData = findClientById(token);
@@ -117,7 +127,10 @@ export class QVPNServer {
       this._clients.set(socket, client);
       await client.startServices();
       const portsPackage = client.prepareServicePackage();
-      const message = this.prepareMessage(portsPackage);
+      const message = this._prepareMessage(
+        ClientFrame.TYPES.PORTS,
+        portsPackage,
+      );
 
       socket.write(message);
     });
@@ -134,5 +147,19 @@ export class QVPNServer {
     });
     this._clients = new Map();
     // TODO: Not able to start server again??
+  }
+
+  private _prepareMessage(
+    type: ClientFrameType,
+    pack: Buffer = Buffer.alloc(0),
+  ) {
+    const clientFrame = new ClientFrame(type, pack).toBuffer();
+    const magicBuf = Buffer.from([MAGIC_BYTE]);
+    const frameType = Buffer.from([0x01]); // For future
+    const length = Buffer.alloc(4);
+
+    length.writeUInt32LE(clientFrame.length, 0);
+
+    return Buffer.concat([magicBuf, frameType, length, clientFrame]);
   }
 }
