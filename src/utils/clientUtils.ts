@@ -1,6 +1,4 @@
-import ClientsData from '../../data/clients.json';
+import { ClientData } from '../interfaces/ClientData';
 
-export type ClientService = typeof ClientsData[number]['client_services'][0];
-
-export const findClientById = (clientId: string) =>
-  ClientsData.find(cli => cli.client_id === clientId);
+export const findClientById = (data: ClientData[], clientId: string) =>
+  data.find(cli => cli.client_id === clientId);

@@ -31,6 +31,7 @@
     "no-useless-constructor": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "no-await-in-loop": "off",
+    "no-new": "off",
     "prettier/prettier": ["warn"],
     "no-underscore-dangle": "off",
     "lines-between-class-members": "off",

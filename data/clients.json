@@ -4,8 +4,9 @@
     "client_title": "Owner",
     "client_services": [
       {
-        "service_id": 1,
-        "service_name": "http connection"
+        "name": "http connection",
+        "internalPort": 8181,
+        "externalPort": 3000
       }
     ]
   }

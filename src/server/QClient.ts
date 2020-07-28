@@ -1,6 +1,7 @@
 import { isObject } from 'util';
-import { ClientService } from '../utils/clientUtils';
+import { ClientService } from '../interfaces/ClientData';
 import { QService } from './QService';
+import { IService } from '../interfaces/IService';
 
 export class QClient {
   private _svcs: Map<string, QService>;
@@ -12,7 +13,7 @@ export class QClient {
   ) {
     this._svcs = new Map();
     services.forEach(svc => {
-      this._svcs.set(svc.service_name, new QService(svc.service_name));
+      this._svcs.set(svc.name, new QService(svc));
     });
   }
 
@@ -30,17 +31,18 @@ export class QClient {
     return Buffer.from(
       JSON.stringify(
         this.services
-          .map(svcD => {
-            const svc = this._svcs.get(svcD.service_name);
-            const name = svcD.service_name;
+          .map(
+            (svcD): IService => {
+              const svc = this._svcs.get(svcD.name);
 
-            if (!svc) return null;
+              if (!svc) return null;
 
-            return {
-              name,
-              port: svc.port,
-            };
-          })
+              return {
+                name: svcD.name,
+                port: svcD.internalPort,
+              };
+            },
+          )
           .filter(isObject),
       ),
     );

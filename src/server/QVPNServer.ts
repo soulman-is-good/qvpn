@@ -1,39 +1,32 @@
 import { Server, Socket, createServer } from 'net';
 import log4js from 'log4js';
-import {
-  FrameFactory,
-  MaintainceFrame,
-  ClientFrame,
-  ClientFrameType,
-} from '../frames';
+import { FrameFactory, MaintainceFrameType, ClientFrameType } from '../frames';
 import { findClientById } from '../utils/clientUtils';
-import { MAGIC_BYTE } from '../consts/generic';
 import { QClient } from './QClient';
+import { IDataProvider } from '../interfaces/IDataProvider';
 
 const log = log4js.getLogger('QVPNServer');
 
 export interface QVPNServerOptions {
   timeout: number;
+  host: string;
+  port: number;
+  dataProvider: IDataProvider;
 }
 
 export class QVPNServer {
   private _server: Server;
-  private _host: string;
-  private _port: number;
   private _error?: Error;
   private _clients: Map<Socket, QClient>;
   private _options: QVPNServerOptions;
 
-  constructor(
-    port = 31313,
-    host = '0.0.0.0',
-    options?: Partial<QVPNServerOptions>,
-  ) {
-    this._host = host;
-    this._port = port;
+  constructor(options?: Partial<QVPNServerOptions>) {
     this._clients = new Map();
     this._options = {
       timeout: 10000,
+      host: '0.0.0.0',
+      port: 31313,
+      dataProvider: () => [],
       ...options,
     };
   }
@@ -41,14 +34,14 @@ export class QVPNServer {
   public start(): Promise<void> {
     this._server = createServer();
     this._server.on('listening', () => {
-      log.info(`Listening on ${this._host}:${this._port}...`);
+      log.info(`Listening on ${this._options.host}:${this._options.port}...`);
     });
     this._server.on('connection', this._onConnection.bind(this));
     this._server.on('error', this._onError.bind(this));
     this._server.on('close', this._onClose.bind(this));
 
     return new Promise(resolve =>
-      this._server.listen(this._port, this._host, resolve),
+      this._server.listen(this._options.port, this._options.host, resolve),
     );
   }
 
@@ -64,17 +57,15 @@ export class QVPNServer {
   }
 
   get host(): string {
-    return this._host;
+    return this._options.host;
   }
 
   get port(): number {
-    return this._port;
+    return this._options.port;
   }
 
   private _onConnection(socket: Socket) {
-    const frames = new FrameFactory((buf: Buffer) =>
-      MaintainceFrame.fromData(buf),
-    );
+    const frames = new FrameFactory<MaintainceFrameType>();
 
     log.info(`Client connected ${socket.remoteAddress}`);
     socket.setTimeout(this._options.timeout);
@@ -101,15 +92,16 @@ export class QVPNServer {
     // 5. Client processes the request and returns back to server
     // 6. Server proxies reply from client to requester
 
-    frames.on(MaintainceFrame.TYPES.PING, () => {
-      const message = this._prepareMessage(ClientFrame.TYPES.PONG);
+    frames.on('PING', () => {
+      const message = FrameFactory.toBuffer<ClientFrameType>('PONG');
 
       socket.write(message);
     });
 
-    frames.on(MaintainceFrame.TYPES.AUTH, async (frame: MaintainceFrame) => {
+    frames.on('AUTH', async frame => {
       const token = frame.payload.toString();
-      const clientData = findClientById(token);
+      const data = await this._options.dataProvider();
+      const clientData = findClientById(data, token);
 
       if (!clientData) {
         log.warn(
@@ -127,8 +119,8 @@ export class QVPNServer {
       this._clients.set(socket, client);
       await client.startServices();
       const portsPackage = client.prepareServicePackage();
-      const message = this._prepareMessage(
-        ClientFrame.TYPES.PORTS,
+      const message = FrameFactory.toBuffer<ClientFrameType>(
+        'PORTS',
         portsPackage,
       );
 
@@ -147,19 +139,5 @@ export class QVPNServer {
     });
     this._clients = new Map();
     // TODO: Not able to start server again??
-  }
-
-  private _prepareMessage(
-    type: ClientFrameType,
-    pack: Buffer = Buffer.alloc(0),
-  ) {
-    const clientFrame = new ClientFrame(type, pack).toBuffer();
-    const magicBuf = Buffer.from([MAGIC_BYTE]);
-    const frameType = Buffer.from([0x01]); // For future
-    const length = Buffer.alloc(4);
-
-    length.writeUInt32LE(clientFrame.length, 0);
-
-    return Buffer.concat([magicBuf, frameType, length, clientFrame]);
   }
 }

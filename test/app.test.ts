@@ -14,7 +14,7 @@ describe('Application test', () => {
   });
 
   it('should start server', async () => {
-    server = new QVPNServer(PORT);
+    server = new QVPNServer({ port: PORT, host: 'localhost' });
 
     await server.start();
     assert.isUndefined(server.getLastError());

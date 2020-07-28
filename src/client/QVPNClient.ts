@@ -1,12 +1,8 @@
 import { Socket, createConnection } from 'net';
 import log4js from 'log4js';
-import {
-  MaintainceFrameType,
-  MaintainceFrame,
-  FrameFactory,
-  ClientFrame,
-} from '../frames';
-import { MAGIC_BYTE } from '../consts/generic';
+import { MaintainceFrameType, FrameFactory, ClientFrameType } from '../frames';
+import { IService } from '../interfaces/IService';
+import { QTCPConnection, QTCPConnectionOptions } from './QTCPConnection';
 
 const log = log4js.getLogger('QVPNClient');
 
@@ -15,6 +11,12 @@ export interface QVPNClientOptions {
   serverPort: number;
   serverHost: string;
   authorizationToken: string;
+  connections: {
+    [name: string]: Pick<
+      QTCPConnectionOptions,
+      'externalHost' | 'externalPort'
+    >;
+  };
 }
 
 export class QVPNClient {
@@ -22,32 +24,42 @@ export class QVPNClient {
   private _options: QVPNClientOptions;
   private _pingInt: NodeJS.Timeout;
 
-  constructor(options?: Partial<QVPNClientOptions>) {
+  constructor(
+    options?: Partial<QVPNClientOptions> &
+      Pick<QVPNClientOptions, 'connections' | 'authorizationToken'>,
+  ) {
     this._options = {
       pingInterval: 5000,
       serverPort: 31313,
       serverHost: 'localhost',
-      authorizationToken: '',
       ...options,
     };
   }
 
-  start() {
-    const frames = new FrameFactory(buf => ClientFrame.fromData(buf));
+  async start() {
+    const frames = new FrameFactory<ClientFrameType>();
 
     this._socket = createConnection(this._options.serverPort);
-    this._socket.on('connect', this._onConnect.bind(this));
-    this._socket.on('close', this._onClose.bind(this));
-    this._socket.on('data', data => frames.addChunk(data));
-    frames.on(ClientFrame.TYPES.PORTS, (frame: ClientFrame) => {
-      log.info('Services frame received');
-      const services = JSON.parse(frame.payload.toString());
-      log.debug(services);
 
-      // TODO: Initialize services
+    return new Promise((resolve, reject) => {
+      this._socket.on('connect', () => {
+        resolve();
+        this._onConnect();
+      });
+      this._socket.on('error', reject);
+      this._socket.on('close', this._onClose.bind(this));
+      this._socket.on('data', data => frames.addChunk(data));
+      frames.on('PORTS', async frame => {
+        log.info('Services frame received');
+        const services = JSON.parse(frame.payload.toString());
+        log.debug(services);
 
-      // Set ping messages
-      this._pingServer();
+        // TODO: Initialize services
+        await this._initializeServices(services);
+
+        // Set ping messages
+        this._pingServer();
+      });
     });
   }
 
@@ -55,8 +67,8 @@ export class QVPNClient {
     log.info('Connected to server');
     // Send authorization request
     this._socket.write(
-      this._prepareMessage(
-        MaintainceFrame.TYPES.AUTH,
+      FrameFactory.toBuffer<MaintainceFrameType>(
+        'AUTH',
         Buffer.from(this._options.authorizationToken),
       ),
     );
@@ -72,7 +84,7 @@ export class QVPNClient {
   private _pingServer() {
     this._pingInt = setTimeout(() => {
       this._socket.write(
-        this._prepareMessage(MaintainceFrame.TYPES.PING),
+        FrameFactory.toBuffer<MaintainceFrameType>('PING'),
         err => {
           if (err) {
             log.warn('Socket PING error', err);
@@ -83,17 +95,20 @@ export class QVPNClient {
     }, this._options.pingInterval);
   }
 
-  private _prepareMessage(
-    type: MaintainceFrameType,
-    pack: Buffer = Buffer.alloc(0),
-  ) {
-    const clientFrame = new MaintainceFrame(type, pack).toBuffer();
-    const magicBuf = Buffer.from([MAGIC_BYTE]);
-    const frameType = Buffer.from([0x01]); // For future
-    const length = Buffer.alloc(4);
+  private _initializeServices(services: IService[]) {
+    return Promise.all(
+      services.map(svc => {
+        const ops = this._options.connections[svc.name];
+        const s = new QTCPConnection({
+          name: svc.name,
+          // TODO: What to do??
+          internalHost: 'localhost',
+          internalPort: svc.port,
+          ...ops,
+        });
 
-    length.writeUInt32LE(clientFrame.length, 0);
-
-    return Buffer.concat([magicBuf, frameType, length, clientFrame]);
+        return s.start();
+      }),
+    );
   }
 }

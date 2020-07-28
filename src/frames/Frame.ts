@@ -1,19 +1,18 @@
 export const CONTROL_CHAR = 0xff;
 
-export abstract class Frame {
-  private _type: string;
+export class Frame<T extends string> {
+  private _type: T;
   private _payload: Buffer;
 
-  static fromData(buffer: Buffer): Frame {
+  static fromData(buffer: Buffer) {
     const index = buffer.findIndex(byte => byte === CONTROL_CHAR);
     const type = buffer.subarray(0, index).toString();
     const payload = buffer.subarray(index + 1);
 
-    /* @ts-ignore */
-    return new this(type, payload);
+    return new Frame(type, payload);
   }
 
-  constructor(type: string, payload: Buffer) {
+  constructor(type: T, payload: Buffer) {
     this._type = type;
     this._payload = payload;
   }
