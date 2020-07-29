@@ -22,7 +22,7 @@ const main = async () => {
     serverHost: host,
     serverPort: port,
     connections: {
-      'http connection': {
+      localWebsite: {
         externalHost: 'localhost',
         externalPort: 8000,
       },

@@ -1,9 +1,7 @@
 import { EventEmitter } from 'events';
-import log4js from 'log4js';
 import { MAGIC_BYTE } from '../consts/generic';
 import { Frame } from './Frame';
 
-const log = log4js.getLogger('FrameFactory');
 /**
  * Header size
  * | # | Length | Description |
@@ -25,32 +23,35 @@ export class FrameFactory<T extends string> extends EventEmitter {
   private _lastSeq = 0;
 
   addChunk(buf: Buffer): void {
-    if (buf.readUInt8(0) !== MAGIC_BYTE) {
-      log.warn(
-        `Malformed buffer. Check window config. Length: ${buf.byteLength}`,
+    let offset = 0;
+
+    while (offset < buf.length) {
+      if (buf.readUInt8(offset) !== MAGIC_BYTE) {
+        offset += 1;
+
+        continue;
+      }
+      const seq = buf.readUInt8(offset + 1);
+      const fSeq = buf.readUInt8(offset + 2);
+      const len = buf.readUInt32LE(offset + 3);
+
+      this._lastSeq = seq;
+      if (!this._chunks[seq]) {
+        this._chunks[seq] = [];
+      }
+      this._chunks[seq][fSeq] = buf.slice(
+        offset + HEADER_SIZE,
+        offset + HEADER_SIZE + Math.min(len, buf.length - HEADER_SIZE),
       );
+      const result = Buffer.concat(this._chunks[seq].filter(Buffer.isBuffer));
 
-      return;
-    }
-    const seq = buf.readUInt8(1);
-    const fSeq = buf.readUInt8(2);
-    const len = buf.readUInt32LE(3);
+      offset += this._chunks[seq][fSeq].length;
+      if (result.byteLength === len) {
+        const frame = Frame.fromData(result);
 
-    this._lastSeq = seq;
-    if (!this._chunks[seq]) {
-      this._chunks[seq] = [];
-    }
-    this._chunks[seq][fSeq] = buf.slice(
-      HEADER_SIZE,
-      HEADER_SIZE + Math.min(len, buf.length - HEADER_SIZE),
-    );
-    const result = Buffer.concat(this._chunks[seq].filter(Buffer.isBuffer));
-
-    if (result.byteLength === len) {
-      const frame = Frame.fromData(result);
-
-      this.emit(frame.type, frame, seq);
-      delete this._chunks[seq];
+        this.emit(frame.type, frame, seq);
+        delete this._chunks[seq];
+      }
     }
   }
 
