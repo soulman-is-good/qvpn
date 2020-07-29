@@ -1,4 +1,5 @@
 import { Server, Socket, createServer } from 'net';
+import { TlsOptions } from 'tls';
 import log4js from 'log4js';
 import { FrameFactory, MaintainceFrameType, ClientFrameType } from '../frames';
 import { findClientById } from '../utils/clientUtils';
@@ -12,6 +13,7 @@ export interface QVPNServerOptions {
   host: string;
   port: number;
   dataProvider: IDataProvider;
+  serviceTLSOptions?: TlsOptions;
 }
 
 export class QVPNServer {
@@ -114,6 +116,7 @@ export class QVPNServer {
         clientData.client_id,
         clientData.client_title,
         clientData.client_services,
+        this._options.serviceTLSOptions,
       );
 
       this._clients.set(socket, client);

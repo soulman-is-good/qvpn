@@ -1,4 +1,5 @@
 import { isObject } from 'util';
+import { TlsOptions } from 'tls';
 import { ClientService } from '../interfaces/ClientData';
 import { QService } from './QService';
 import { IService } from '../interfaces/IService';
@@ -10,10 +11,17 @@ export class QClient {
     public id: string,
     public title: string,
     public services: ClientService[],
+    tlsOptions: TlsOptions,
   ) {
     this._svcs = new Map();
     services.forEach(svc => {
-      this._svcs.set(svc.name, new QService(svc));
+      this._svcs.set(
+        svc.name,
+        new QService({
+          ...svc,
+          tls: tlsOptions,
+        }),
+      );
     });
   }
 

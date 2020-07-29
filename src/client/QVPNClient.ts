@@ -1,4 +1,5 @@
 import { Socket, createConnection } from 'net';
+import { ConnectionOptions } from 'tls';
 import log4js from 'log4js';
 import { MaintainceFrameType, FrameFactory, ClientFrameType } from '../frames';
 import { IService } from '../interfaces/IService';
@@ -11,6 +12,7 @@ export interface QVPNClientOptions {
   serverPort: number;
   serverHost: string;
   authorizationToken: string;
+  tls?: ConnectionOptions;
   connections: {
     [name: string]: Pick<
       QTCPConnectionOptions,
@@ -39,7 +41,10 @@ export class QVPNClient {
   async start() {
     const frames = new FrameFactory<ClientFrameType>();
 
-    this._socket = createConnection(this._options.serverPort);
+    this._socket = createConnection(
+      this._options.serverPort,
+      this._options.serverHost,
+    );
 
     return new Promise((resolve, reject) => {
       this._socket.on('connect', () => {
@@ -101,9 +106,9 @@ export class QVPNClient {
         const ops = this._options.connections[svc.name];
         const s = new QTCPConnection({
           name: svc.name,
-          // TODO: What to do??
-          internalHost: 'localhost',
+          internalHost: this._options.serverHost,
           internalPort: svc.port,
+          tls: this._options.tls,
           ...ops,
         });
 

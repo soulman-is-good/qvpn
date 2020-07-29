@@ -4,9 +4,9 @@
   "description": "Base template for nodejs application",
   "main": "dist/app.js",
   "scripts": {
-    "start": "nodemon --watch src/**/*.ts --exec ts-node src/app.ts",
+    "start": "nodemon --watch src/**/*.ts --exec ts-node demo/demo.ts",
     "build": "tsc",
-    "demo:server": "ts-node ./demo/server.ts",
+    "demo:server": "ts-node ./demo/demo.ts",
     "lint": "eslint src/**/*.ts test/**/*.ts",
     "test": "mocha -r ts-node/register test/**/*.ts"
   },

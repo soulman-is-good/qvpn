@@ -1,11 +1,9 @@
 import * as tls from 'tls';
 import * as net from 'net';
-import fs from 'fs';
 import log4js from 'log4js';
 import { FrameFactory, ServiceFrameType } from '../frames';
 
 const log = log4js.getLogger('QTCPConnection');
-const ca = fs.readFileSync('./rootCA.crt');
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -15,6 +13,7 @@ export interface QTCPConnectionOptions {
   internalPort: number;
   externalHost: string;
   externalPort: number;
+  tls: tls.ConnectionOptions;
 }
 export class QTCPConnection {
   private _tunnel: tls.TLSSocket;
@@ -32,7 +31,7 @@ export class QTCPConnection {
         this._tunnel = tls.connect(
           this._options.internalPort,
           this._options.internalHost,
-          { ca },
+          this._options.tls,
           resolve,
         );
         this._tunnel.on('connect', this._onConnect.bind(this));

@@ -1,22 +1,16 @@
 import * as net from 'net';
 import * as tls from 'tls';
-import * as fs from 'fs';
 import log4js from 'log4js';
 import { FrameFactory, ServiceFrameType } from '../frames';
 
 const log = log4js.getLogger('QService');
-
-const options: tls.TlsOptions = {
-  ca: fs.readFileSync('./rootCA.crt'),
-  key: fs.readFileSync('./server.key'),
-  cert: fs.readFileSync('./server.crt'),
-};
 
 export interface QServiceOptions {
   name: string;
   host: string;
   internalPort?: number;
   externalPort?: number;
+  tls?: tls.TlsOptions;
 }
 
 export class QService {
@@ -130,7 +124,7 @@ export class QService {
 
         return;
       }
-      this._tunnel = tls.createServer(options);
+      this._tunnel = tls.createServer(this._options.tls);
       this._tunnel.on('listening', () => {
         resolve((this._tunnel.address() as net.AddressInfo).port);
       });

@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import log4js from 'log4js';
 import { QVPNServer } from '../src/qvpn';
 import data from '../data/clients.json';
@@ -16,6 +17,11 @@ const main = async () => {
     host,
     port,
     dataProvider: () => data,
+    serviceTLSOptions: {
+      ca: fs.readFileSync('./rootCA.crt'),
+      cert: fs.readFileSync('./server.crt'),
+      key: fs.readFileSync('./server.key'),
+    },
   });
 
   await srv.start();
