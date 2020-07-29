@@ -59,6 +59,8 @@ export class QService {
 
   private async _setupPipe() {
     let clientSocket: tls.TLSSocket;
+    const onData = <T extends string>(ff: FrameFactory<T>) => (buf: Buffer) =>
+      ff.addChunk(buf);
 
     this._tunnelConnection().then(sock => {
       clientSocket = sock;
@@ -67,40 +69,54 @@ export class QService {
 
     this._server.on('connection', async sock => {
       const sockId = connNum;
-      const ff = new FrameFactory<ServiceFrameType>(sockId);
+      const ff = new FrameFactory<ServiceFrameType>();
+      const dataListener = onData(ff);
 
+      log.debug(
+        `Connection #${connNum} established on port ${sock.remotePort}...`,
+      );
       connNum += 1;
 
       if (!clientSocket) {
+        log.info('Client connection does not exists. Waiting...');
         clientSocket = await this._tunnelConnection();
       }
-      clientSocket.on('data', buffer => ff.addChunk(buffer));
-      clientSocket.write(
-        FrameFactory.toBuffer<ServiceFrameType>('NEW', Buffer.alloc(0), sockId),
-      );
+      sock.on('error', err => {
+        log.error(err);
+        clientSocket.off('data', dataListener);
+      });
+      clientSocket.on('data', dataListener);
+      FrameFactory.toBufferStack<ServiceFrameType>(
+        'NEW',
+        Buffer.alloc(0),
+        sockId,
+      ).forEach(buf => {
+        clientSocket.write(buf);
+      });
       sock.on('data', buffer => {
-        clientSocket.write(
-          FrameFactory.toBuffer<ServiceFrameType>('DATA', buffer, sockId),
-        );
+        FrameFactory.toBufferStack<ServiceFrameType>(
+          'DATA',
+          buffer,
+          sockId,
+        ).forEach(buf => clientSocket.write(buf));
       });
       sock.on('close', () => {
-        clientSocket.write(
-          FrameFactory.toBuffer<ServiceFrameType>(
-            'END',
-            Buffer.alloc(0),
-            sockId,
-          ),
-        );
+        clientSocket.off('data', dataListener);
+        FrameFactory.toBufferStack<ServiceFrameType>(
+          'END',
+          Buffer.alloc(0),
+          sockId,
+        ).forEach(buf => clientSocket.write(buf));
       });
       ff.on('DATA', (frame, seq) => {
         log.debug(`> DATA frame #${seq}`);
-        if (sock.writable) {
+        if (seq === sockId) {
           sock.write(frame.payload);
         }
       });
       ff.on('END', (_f, seq) => {
         log.debug(`> END frame #${seq}`);
-        if (sock.writable) {
+        if (seq === sockId) {
           sock.end();
         }
       });

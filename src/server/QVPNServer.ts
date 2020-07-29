@@ -93,9 +93,9 @@ export class QVPNServer {
     // 6. Server proxies reply from client to requester
 
     frames.on('PING', () => {
-      const message = FrameFactory.toBuffer<ClientFrameType>('PONG');
-
-      socket.write(message);
+      FrameFactory.toBufferStack<ClientFrameType>('PONG').forEach(buf =>
+        socket.write(buf),
+      );
     });
 
     frames.on('AUTH', async frame => {
@@ -119,12 +119,11 @@ export class QVPNServer {
       this._clients.set(socket, client);
       await client.startServices();
       const portsPackage = client.prepareServicePackage();
-      const message = FrameFactory.toBuffer<ClientFrameType>(
+
+      FrameFactory.toBufferStack<ClientFrameType>(
         'PORTS',
         portsPackage,
-      );
-
-      socket.write(message);
+      ).forEach(message => socket.write(message));
     });
   }
 

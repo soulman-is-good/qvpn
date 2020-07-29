@@ -66,12 +66,10 @@ export class QVPNClient {
   private _onConnect() {
     log.info('Connected to server');
     // Send authorization request
-    this._socket.write(
-      FrameFactory.toBuffer<MaintainceFrameType>(
-        'AUTH',
-        Buffer.from(this._options.authorizationToken),
-      ),
-    );
+    FrameFactory.toBufferStack<MaintainceFrameType>(
+      'AUTH',
+      Buffer.from(this._options.authorizationToken),
+    ).forEach(buf => this._socket.write(buf));
   }
 
   private _onClose() {
@@ -83,15 +81,17 @@ export class QVPNClient {
 
   private _pingServer() {
     this._pingInt = setTimeout(() => {
-      this._socket.write(
-        FrameFactory.toBuffer<MaintainceFrameType>('PING'),
-        err => {
+      this._pingInt = null;
+      FrameFactory.toBufferStack<MaintainceFrameType>('PING').forEach(buf => {
+        this._socket.write(buf, err => {
           if (err) {
             log.warn('Socket PING error', err);
           }
-          this._pingServer();
-        },
-      );
+          if (!this._pingInt) {
+            this._pingServer();
+          }
+        });
+      });
     }, this._options.pingInterval);
   }
 

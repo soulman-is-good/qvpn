@@ -70,16 +70,20 @@ export class QTCPConnection {
       });
       conns[seq].on('data', buffer => {
         if (this._tunnel.writable) {
-          this._tunnel.write(
-            FrameFactory.toBuffer<ServiceFrameType>('DATA', buffer, seq),
-          );
+          FrameFactory.toBufferStack<ServiceFrameType>(
+            'DATA',
+            buffer,
+            seq,
+          ).forEach(buf => this._tunnel.write(buf));
         }
       });
       conns[seq].on('close', () => {
         delete conns[seq];
-        this._tunnel.write(
-          FrameFactory.toBuffer<ServiceFrameType>('END', Buffer.alloc(0), seq),
-        );
+        FrameFactory.toBufferStack<ServiceFrameType>(
+          'END',
+          Buffer.alloc(0),
+          seq,
+        ).forEach(buf => this._tunnel.write(buf));
       });
     });
     ff.on('DATA', (frame, seq) => {
