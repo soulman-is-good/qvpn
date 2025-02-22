@@ -10,7 +10,7 @@ log4js.configure({
 });
 
 const main = async () => {
-  const host = 'localhost';
+  const host = '0.0.0.0';
   const port = 3333;
   const srv = new QVPNServer({
     host,
@@ -30,7 +30,7 @@ const main = async () => {
   });
 
   await srv.start();
-  await cli.start();
+  //await cli.start();
 };
 
 main();

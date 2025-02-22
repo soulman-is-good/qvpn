@@ -13,10 +13,10 @@ export interface QTCPConnectionOptions {
   internalPort: number;
   externalHost: string;
   externalPort: number;
-  tls: tls.ConnectionOptions;
+  tls?: tls.ConnectionOptions;
 }
 export class QTCPConnection {
-  private _tunnel: tls.TLSSocket;
+  private _tunnel: tls.TLSSocket | net.Socket;
   private _options: QTCPConnectionOptions;
 
   constructor(options: QTCPConnectionOptions) {
@@ -28,12 +28,18 @@ export class QTCPConnection {
   start() {
     return Promise.all([
       new Promise((resolve, reject) => {
-        this._tunnel = tls.connect(
-          this._options.internalPort,
-          this._options.internalHost,
-          this._options.tls,
-          resolve,
-        );
+        this._tunnel = this._options.tls
+          ? tls.connect(
+              this._options.internalPort,
+              this._options.internalHost,
+              this._options.tls,
+              resolve,
+            )
+          : net.connect(
+              this._options.internalPort,
+              this._options.internalHost,
+              resolve,
+            );
         this._tunnel.on('connect', this._onConnect.bind(this));
         this._tunnel.on('timeout', reject);
         this._tunnel.on('error', err => {
@@ -57,6 +63,7 @@ export class QTCPConnection {
     const conns: { [key: number]: net.Socket } = {};
 
     ff.on('NEW', (_f, seq) => {
+      log.debug(`New connection #${seq}`);
       if (conns[seq]) {
         return;
       }
@@ -73,7 +80,9 @@ export class QTCPConnection {
             'DATA',
             buffer,
             seq,
-          ).forEach(buf => this._tunnel.write(buf));
+          ).forEach(buf => {
+            this._tunnel.write(buf);
+          });
         }
       });
       conns[seq].on('close', () => {

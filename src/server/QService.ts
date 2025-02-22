@@ -15,7 +15,7 @@ export interface QServiceOptions {
 
 export class QService {
   private _server: net.Server;
-  private _tunnel: tls.Server;
+  private _tunnel: tls.Server | net.Server;
   private _options: QServiceOptions;
 
   constructor(params: Partial<QServiceOptions> & { name: string }) {
@@ -52,7 +52,7 @@ export class QService {
   }
 
   private async _setupPipe() {
-    let clientSocket: tls.TLSSocket;
+    let clientSocket: tls.TLSSocket | net.Socket;
     const onData = <T extends string>(ff: FrameFactory<T>) => (buf: Buffer) =>
       ff.addChunk(buf);
 
@@ -124,7 +124,9 @@ export class QService {
 
         return;
       }
-      this._tunnel = tls.createServer(this._options.tls);
+      this._tunnel = this._options.tls
+        ? tls.createServer(this._options.tls)
+        : net.createServer();
       this._tunnel.on('listening', () => {
         resolve((this._tunnel.address() as net.AddressInfo).port);
       });
@@ -143,8 +145,10 @@ export class QService {
     if (!this._tunnel) {
       await this._listenTunnel();
     }
+    const event = this._options.tls ? 'secureConnection' : 'connection';
+
     return new Promise(resolve =>
-      this._tunnel.on('secureConnection', sock => {
+      this._tunnel.on(event, sock => {
         resolve(sock);
       }),
     );

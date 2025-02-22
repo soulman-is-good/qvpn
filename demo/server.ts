@@ -12,16 +12,16 @@ log4js.configure({
 
 const main = async () => {
   const host = '0.0.0.0';
-  const port = 3333;
+  const port = 8080;
   const srv = new QVPNServer({
     host,
     port,
     dataProvider: () => data,
-    serviceTLSOptions: {
+/*    serviceTLSOptions: {
       ca: fs.readFileSync('./rootCA.crt'),
       cert: fs.readFileSync('./server.crt'),
       key: fs.readFileSync('./server.key'),
-    },
+    },*/
   });
 
   await srv.start();

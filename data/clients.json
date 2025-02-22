@@ -5,8 +5,19 @@
     "client_services": [
       {
         "name": "localWebsite",
-        "externalPort": 8000,
-        "internalPort": 2823
+        "externalPort": 3000,
+        "internalPort": 8080
+      }
+    ]
+  },
+  {
+    "client_id": "d5777241a6d74134b6c4fdf1c1d844ad",
+    "client_title": "Owner2",
+    "client_services": [
+      {
+        "name": "sshtunnel",
+        "externalPort": 2222,
+        "internalPort": 2200
       }
     ]
   }
