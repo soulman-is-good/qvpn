@@ -25,7 +25,6 @@ export class FrameFactory<T extends string> extends EventEmitter {
   addChunk(buf: Buffer): void {
     let offset = 0;
 
-    console.log(buf.toString())
     while (offset < buf.length) {
       if (buf.readUInt8(offset) !== MAGIC_BYTE) {
         offset += 1;

@@ -1,10 +1,8 @@
-# Node.JS applicaiton template on typescript
+# Quasi VPN
 
-Just clone and scaffold on your own taste
+VPN is a virtual private network. An extended private network through public network.<br>
+QVPN client application allows you to expose some of services running in localnetwork to public via QVPN server.
 
-```sh
-git clone https://github.com/soulman-is-good/node-typescript-template.git my-project
-cd my-project
-npm i
-npm start
-```
+![qvpn_example](./docs/qvpn_example.png)
+
+On the example picture above, qvpn client is being run exposing HTTP server and MySQL server (just for demo).<br>
